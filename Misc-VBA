@@ -1,0 +1,587 @@
+Option Explicit
+Dim Sht As String
+Function ReportErrOrLOG(ErrStr As String)
+'
+Dim sFolder As String
+' Error file is a log file file #1
+'
+ErrStr = ErrStr & Chr(10)
+    sFolder = Application.ActiveWorkbook.Path
+'
+    Open sFolder & "\DB_LOG.txt" For Append As #1
+    Print #1, " LOPA Database:- " & [UserFile] & " Date:" & Date & " Time:" & Now
+    Print #1, ErrStr
+'
+    Close #1
+End Function
+Sub TextLog()
+Dim sFolder As String
+'
+On Error GoTo ErrTextLOG
+    sFolder = Application.ActiveWorkbook.Path
+    '
+    Debug.Print sFolder & "\DB_LOG.txt"
+'
+    Open sFolder & "\DB_LOG.txt" For Append As #1
+'
+    Print #1, ""
+    Print #1, " ***********************************************************************************************"
+    Print #1, " LOPA Database:- " & [UserFile] & "      Date:" & Date & " Time:" & Now
+    Print #1, " ***********************************************************************************************"
+    Print #1, ""
+    Close #1
+Exit Sub
+ErrTextLOG:
+MsgBox ("Warning Only: LOG file not opened. Error was;- " & Err.Description)
+Err.Clear
+End Sub
+Public Sub AddLOPAMenu()
+Dim LOPA_MenuBar As CommandBar
+Dim LOPA_CBC As CommandBarControl
+Dim HelpPosition As Integer
+'
+DelLOPAMenu
+Set LOPA_MenuBar = Application.CommandBars("Worksheet Menu Bar")
+' Save the Help menu position
+HelpPosition = LOPA_MenuBar.Controls("Help").Index
+Set LOPA_CBC = LOPA_MenuBar.Controls.Add(Type:=msoControlPopup, _
+                                        Before:=HelpPosition _
+                                        , Temporary:=True)
+' Add options here.
+With LOPA_CBC
+    .Caption = "LOPA DB"
+    With .Controls.Add(Type:=msoControlPopup)
+        .Caption = "Connection"
+    
+        With .Controls.Add(Type:=msoControlButton)
+            .Caption = "&Connect To DB"
+            .OnAction = "ConnectionDialog"
+        End With
+        With .Controls.Add(Type:=msoControlButton)
+            .Caption = "Connect S&tatus"
+            .OnAction = "ConnectStatus"
+        End With
+       With .Controls.Add(Type:=msoControlButton)
+            .Caption = "Reset LOPA DB Used"
+            .OnAction = "ResetLOPADBused"
+        End With
+    End With
+' **************************************************
+'   Add Import drop downs
+    With .Controls.Add(Type:=msoControlPopup)
+        .Caption = "Import from DB"
+        With .Controls.Add(Type:=msoControlButton)
+        .Caption = "&Get Data"
+        .OnAction = "GetData"
+        End With
+        With .Controls.Add(Type:=msoControlButton)
+        .Caption = "&Select Data"
+        .OnAction = "OpenDataForm"
+        End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '.Caption = "&Alarm Data"
+        '.OnAction = "GetDatabaseAlarms"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '.Caption = "SI&F Data"
+        '.OnAction = "SIF_Start"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '.Caption = "Sensors"
+        '.OnAction = "GetLOPADB_Sensors"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '.Caption = "Final Elements"
+        '.OnAction = "GetLOPADB_FE"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '.Caption = "CPU"
+        '.OnAction = "StartLoadCPUdata"
+        'End With
+       'With .Controls.Add(Type:=msoControlButton)
+       ' .Caption = "Sensor List"
+       ' .OnAction = "SensorList"
+       ' End With
+       'With .Controls.Add(Type:=msoControlButton)
+       ' .Caption = "F.E. List"
+       ' .OnAction = "FEList"
+       ' End With
+       ' With .Controls.Add(Type:=msoControlButton)
+       ' .Caption = "Lock\Unlock Data Import"
+       ' .OnAction = "Lockdata"
+       ' End With
+     End With
+' *************************************************
+' Add other items.
+    With .Controls.Add(Type:=msoControlButton)
+        .Caption = "&Print"
+        .OnAction = "PrintOut"
+    End With
+    With .Controls.Add(Type:=msoControlPopup)
+        .Caption = "Clear"
+        With .Controls.Add(Type:=msoControlButton)
+            .Caption = "Clear Data"
+            .OnAction = "ClearLOPAData"
+        End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '    Sht = "BPCS"
+        '    .Caption = "Clear &BPCS"
+        '    .OnAction = "BPCSCLear"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '    Sht = "ALarm"
+        '    .Caption = "Clear &Op Res/Alarm"
+        '    .OnAction = "ORCLear"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '     Sht = "SIF"
+        '    .Caption = "Clear SI&F"
+        '    .OnAction = "SIFCLear"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '    .Caption = "Clear Sensor List"
+        '    .OnAction = "SensorListClear"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '    .Caption = "Clear F.E. List"
+        '    .OnAction = "FEListClear"
+        'End With
+        'With .Controls.Add(Type:=msoControlButton)
+        '    .Caption = "Clear &All"
+        '    .OnAction = "CLearAll"
+        'End With
+    End With
+'
+End With
+'
+End Sub
+Public Sub DelLOPAMenu()
+Dim LOPA_MenuBar As CommandBar
+On Error Resume Next
+'
+Set LOPA_MenuBar = CommandBars("Worksheet Menu Bar")
+LOPA_MenuBar.Controls("LOPA DB").Delete
+'
+End Sub
+Sub LockData()
+' This just set a lock so the user
+' cannot import data. If locked then
+' it will unlock. If not locked it will lock.
+DBLock = [DBLock]
+If DBLock = "UNLOCKED" Then
+    DBLock = "LOCKED"
+    Names.Add Name:="DBLock", RefersTo:=DBLock
+Else
+    DBLock = "UNLOCKED"
+    Names.Add Name:="DBLock", RefersTo:=DBLock
+End If
+'
+End Sub
+Public Function NameInWorkbook(strName As String) As Boolean
+' Check if the given NAME {strName} is in the workbook name list.
+' For the LOPA database several names are used to store
+' DB Folder and file info.
+Dim str As String
+Dim Rng As Range
+'
+Application.Volatile
+On Error Resume Next
+Set Rng = Application.Caller
+Err.Clear
+If Rng Is Nothing Then
+    str = ActiveWorkbook.Names(strName).Name
+Else
+    str = Rng.Parent.Parent.Names(strName).Name
+End If
+'
+If Err.Number = 0 Then NameInWorkbook = True
+'
+'
+End Function
+'
+Function UserFileSearch() As Boolean
+    Dim lChoice As Long
+    Dim strPath As Variant
+    Dim sTxt As String
+    Dim PartTxt As String
+    Dim Cnt As Integer
+    Dim Pos As Integer
+    Dim fd As FileDialog
+    Dim fName As String
+    Dim sDir As String
+    Dim FileCnt As Integer
+    Dim CurFolder As String
+'
+CurFolder = Application.ActiveWorkbook.Path
+On Error GoTo ErrUserFileSearch:
+   Set fd = Application.FileDialog(msoFileDialogFilePicker)
+'
+    ' present the dialog
+    With fd
+        .AllowMultiSelect = False
+        .InitialFileName = CurFolder
+        .Filters.Clear
+        
+        If .Show = -1 Then
+'        lChoice = .Display
+'
+        FileCnt = .SelectedItems.Count
+        For Each strPath In .SelectedItems
+            sTxt = strPath
+        Next strPath
+        End If
+    End With
+'
+    Set fd = Nothing
+' ***************************
+    fName = FileName(sTxt)
+' ***************************
+    If fName = "" Then Exit Function
+'
+    If InStr(UCase(fName), ".MDE") = 0 And InStr(UCase(fName), "USER.MDB") = 0 Then
+        MsgBox "The file you selected is not a .MDE or _USER.MDB file "
+        UserFileSearch = False
+        Exit Function
+    Else
+            sDir = Trim(sTxt)
+'       ********************************************
+            Names.Add Name:="DB_Folder", RefersTo:=sDir
+'       ********************************************
+Names.Add Name:="DB_Folder", RefersTo:=sDir
+'
+Dim sOthName As String
+            If InStr(UCase(fName), "_USER.MDB") > 0 Then
+                Names.Add Name:="UserFile", RefersTo:=fName ' Save file name.
+                ConnectUserDB
+                sOthName = "*.MDE"
+                FileSearch sDir, sOthName  ' Found MDB try MDE
+                Names.Add Name:="MDEFile", RefersTo:=sOthName ' Save file name.
+'
+            ElseIf InStr(UCase(fName), ".MDE") > 0 Then
+                Names.Add Name:="UserFile", RefersTo:=fName ' Save file name.
+                sOthName = "*_User.MDB"
+                FileSearch sDir, sOthName  ' Found MDE try MDB
+                Names.Add Name:="UserFile", RefersTo:=sOthName ' Save file name.
+            End If
+'
+        If FileCnt > 1 Then
+            MsgBox ("More than one file exist of either User.MDB and/or *.MDE file Browse used 1st.")
+            UserFileSearch = False
+            Exit Function
+        End If
+'
+    UserFileSearch = True
+End If
+' Check if is a end file name here.
+'
+' Reset User/Case/MDE jet connections
+UserConnect = ""
+MDEConnect = ""
+CaseConnect = ""
+'
+Exit Function
+ErrUserFileSearch:
+ReportErrOrLOG "WARNING :- UserFileSearch Failed. Error was " & Err.Description
+Err.Clear
+'
+End Function
+'
+Public Function FileName(sTxt) As String
+'
+Dim TxtLEN As Integer
+Dim I As Integer
+Dim strFS As String
+strFS = Application.PathSeparator
+'
+TxtLEN = Len(sTxt)
+'
+For I = TxtLEN To 1 Step -1
+    If Mid(sTxt, I, 1) = strFS Then Exit For
+Next
+FileName = Right(sTxt, TxtLEN - I)
+sTxt = Left(sTxt, TxtLEN - Len(FileName))
+Debug.Print sTxt
+'
+End Function
+'
+Private Sub ConnectionDialog()
+'
+Dim sFolder As String
+Dim ConnMsg As String
+Dim sFile As String
+Dim ConnCnt As Integer
+ sFolder = Application.ActiveWorkbook.Path
+ sFile = ""
+ PlantName = ""
+If UserFileSearch() Then
+'
+    TextLog   ' Save connection to log file.
+'
+    If ConnectMDEDB Then
+       ConnCnt = 1
+       If ConnCnt = 0 Then
+           ConnMsg = "MDE user interface could not be connected. " & Chr(10)
+       End If
+    End If
+    If ConnectBEDB Then
+        ConnCnt = ConnCnt + 2
+        If ConnCnt < 2 Then
+           ConnMsg = "LOPA_Tables_be.MDB Tables could not be connected. " & Chr(10)
+        End If
+    End If
+    If ConnectUserDB Then
+        ConnCnt = ConnCnt + 4
+        If ConnCnt < 4 Then
+           ConnMsg = [UserFile] & " Tables could not be connected. " & Chr(10)
+        End If
+    End If
+    If ConnectCaseDB Then
+        ConnCnt = ConnCnt + 8
+        If ConnCnt < 8 Then
+           ConnMsg = "LOPA_Cases.MDB Tables could not be connected. " & Chr(10)
+        End If
+    End If
+    If ConnCnt <> 15 Then
+    MsgBox (" One or more connections are missing. Connections Missing are:-" & Chr(10) _
+           & ConnMsg)
+           ReportErrOrLOG ConnMsg
+    End If
+End If
+
+End Sub
+
+
+'
+Sub SetColRed(Sht, R As Integer, C As Integer)
+'
+Worksheets(Sht).Cells(R, C).Select
+'
+    With Selection.Interior
+        .ColorIndex = 3
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+    End With
+End Sub
+Sub SetColOther(Sht, R As Integer, C As Integer)
+'
+'
+Worksheets(Sht).Cells(R, C).Select
+'
+    With Selection.Interior
+        .ColorIndex = 40
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+    End With
+End Sub
+Sub SetColNoCol(Sht, R As Integer, C As Integer)
+'
+'
+Worksheets(Sht).Cells(R, C).Select
+'
+    With Selection.Interior
+        .ColorIndex = 2
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+    End With
+        Range("F1").Select
+        Selection.Copy
+'
+Worksheets(Sht).Cells(R, C).Select
+        Selection.PasteSpecial Paste:=xlPasteFormats, Operation:=xlNone, _
+        SkipBlanks:=False, Transpose:=False
+   
+End Sub
+
+Sub CelColGrey(Sht, R As Integer, C As Integer)
+'
+Worksheets(Sht).Cells(R, C).Select
+'
+    With Selection.Interior
+        .ColorIndex = 15
+        .Pattern = xlSolid
+        .PatternColorIndex = xlAutomatic
+    End With
+End Sub
+Function GoHome(Sht)
+    Sheets(Sht).Select
+    Range("B1").Select
+End Function
+Sub ClearAllData(Sht)
+'
+    Sheets(Sht).Select
+    Range("F1:IV63").Select
+    Selection.ClearContents
+    '
+    Columns("F:IV").Select
+    Selection.ColumnWidth = 30
+    Range("F1").Select
+'
+End Sub
+Sub ResetLOPADBused()
+'
+Dim Msg As String
+Dim Title As String
+Dim Style, Response
+Style = vbYesNo + vbCritical + vbDefaultButton2    ' Define buttons.
+Title = "Reset Workbook to LOPA DB Not Used."
+'
+Response = MsgBox(Msg, Style, Title)
+If Response = vbYes Then    ' User chose Yes.
+    Names.Add Name:="LOPADB_Used", RefersTo:="NO"
+Else    ' User chose No.
+    MsgBox ("Reset Aborted.")
+End If
+'
+End Sub
+Sub SensorListClear()
+'
+'
+    Sheets("Blank Sensor Checklist").Select
+    Range("A3:AD1772").Select
+    Selection.ClearContents
+    Range("A3").Select
+End Sub
+Sub FEListClear()
+'
+'
+    Sheets("Blank FCE Checklist").Select
+    Range("A3:AD1772").Select
+    Selection.ClearContents
+    Range("A3").Select
+End Sub
+Sub HighLightNonCred(Sht, iRow, iCol)
+'
+' Border Non credible cells
+'
+    Sheets(Sht).Select
+    Worksheets(Sht).Cells(iRow, iCol).Select
+    With Selection.Borders(xlEdgeLeft)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .ColorIndex = xlAutomatic
+    End With
+    With Selection.Borders(xlEdgeTop)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .ColorIndex = xlAutomatic
+    End With
+    With Selection.Borders(xlEdgeBottom)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .ColorIndex = xlAutomatic
+    End With
+    With Selection.Borders(xlEdgeRight)
+        .LineStyle = xlContinuous
+        .Weight = xlThick
+        .ColorIndex = xlAutomatic
+    End With
+End Sub
+Sub ResetBorder(Sht)
+'
+    Sheets(Sht).Select
+    Range("G3:IV3").Select
+    Selection.Borders(xlDiagonalDown).LineStyle = xlNone
+    Selection.Borders(xlDiagonalUp).LineStyle = xlNone
+    Selection.Borders(xlEdgeLeft).LineStyle = xlNone
+    Selection.Borders(xlEdgeTop).LineStyle = xlNone
+    Selection.Borders(xlEdgeBottom).LineStyle = xlNone
+    Selection.Borders(xlEdgeRight).LineStyle = xlNone
+    Selection.Borders(xlInsideVertical).LineStyle = xlNone
+    Selection.Borders(xlInsideHorizontal).LineStyle = xlNone
+End Sub
+'
+Sub ResetIPLSht(Sht)
+'
+    Sheets(Sht).Select
+    Range("F62").Select
+    Application.CutCopyMode = False
+    Selection.Copy
+    Range("G2:IV277").Select
+    ActiveSheet.Paste
+    Range("G3").Select
+'
+End Sub
+Sub SetUpCol(Sht, iCol)
+Dim lsw As Worksheet
+'
+    Set lsw = Worksheets(Sht)
+    '
+    lsw.Columns("C:C").Copy lsw.Columns(iCol)
+    lsw.Columns(iCol).EntireColumn.Hidden = False
+   'lsw.Columns(3).EntireColumn.Hidden = True
+    '
+End Sub
+Function ShtName() As String
+'
+Dim Csht As String
+Dim ThisSht As String
+Dim WS As Worksheet
+Csht = ActiveSheet.Name
+Application.ScreenUpdating = False
+For Each WS In Worksheets
+    
+    ThisSht = WS.Name
+    Worksheets(ThisSht).Select
+    If Worksheets(ThisSht).Cells(1, 81) = "PlantSheet" Then
+       ShtName = ThisSht
+       Names.Add Name:="PltSht", RefersTo:=ShtName
+       Exit For
+    End If
+Next
+Worksheets(Csht).Select
+Application.ScreenUpdating = True
+End Function
+Sub ClearLOPAData()
+'
+Dim WrkSht As Worksheet
+Dim Sht As String
+Dim R As Integer
+Dim MT As Integer
+Dim Rng As String
+'
+R = 7
+'
+Rng = "B" & Trim(str(R)) & ":AO" & Trim(str(R))
+'
+Sht = ShtName
+'
+Worksheets(Sht).Select
+Set WrkSht = Worksheets(Sht)
+'
+Do While MT < 20
+    If WrkSht.Cells(R, 3) = "" Then
+        MT = MT + 1
+    Else
+        MT = 0
+    End If
+    '
+    Range(Rng).Select
+    Selection.ClearContents
+    Range("B7").Select
+    R = R + 1
+    Rng = "B" & Trim(str(R)) & ":AO" & Trim(str(R))
+Loop
+' We do not need this.
+'WrkSht.Cells(6, 2) = "Equipment"
+'WrkSht.Cells(6, 3) = "IPL# (fill in text - see comment)"
+'WrkSht.Cells(6, 4) = "IPL Description (copy text from LOPA)"
+'WrkSht.Cells(6, 5) = "Integrity Level (dropdown)"
+'WrkSht.Cells(6, 6) = "Description of Action Item (fill in text)"
+'
+End Sub
+Sub PrintOut()
+'
+Dim LastRow As Integer
+Dim Rng As String
+'
+Sht = ShtName
+'
+FindStartiRow (Sht) ' This sets irow to the last.
+LastRow = iRow
+'
+    Rng = "A1:AC" & Trim(str(LastRow))
+    Sheets(Sht).Select
+    Sheets(Sht).Range(Rng).Select
+    ActiveWindow.Selection.PrintPreview
+End Sub
+
