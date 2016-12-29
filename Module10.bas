@@ -12,7 +12,7 @@ Sub CopiarSensors2AI()
 Attribute CopiarSensors2AI.VB_ProcData.VB_Invoke_Func = " \n14"
 '
 ' Macro made by Freddy Gonzalez
-' Tica Polyols Cartagena
+    ' Production Eng Polyols Cartagena
 
 '
     Dim PosX As Integer
